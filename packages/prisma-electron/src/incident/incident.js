@@ -126,7 +126,7 @@ const assignIncidentToUserThunk = (
 
   try {
     const updated = await dispatch(updateIncident(updatedIncident));
-    dispatch(acknowledgeForTarget(updated.id));
+    dispatch(acknowledgeForTarget(updated.id)).catch(() => {});
     return updated;
   } catch (error) {
     throw error;

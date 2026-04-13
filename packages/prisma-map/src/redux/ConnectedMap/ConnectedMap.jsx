@@ -212,4 +212,10 @@ class ConnectedMap extends React.Component {
   }
 }
 
-export default connect(ConnectedMap.mapStateToProps, ConnectedMap.mapDispatchToProps)(ConnectedMap);
+const ConnectedMapWithRedux = connect(
+  ConnectedMap.mapStateToProps,
+  ConnectedMap.mapDispatchToProps,
+)(ConnectedMap);
+
+export { ConnectedMap };
+export default ConnectedMapWithRedux;

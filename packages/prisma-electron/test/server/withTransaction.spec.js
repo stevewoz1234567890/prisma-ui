@@ -1,28 +1,25 @@
 import React from 'react';
 import { shallow } from 'enzyme';
-import { mockStore } from '../common';
-import withTransaction from 'server/withTransaction';
+import withTransactionConnected, { withTransaction } from 'server/withTransaction';
 
 class WrappedComponent extends React.Component {
   render = () => <div id="wrapped" />;
 }
 
+/** Unconnected HOC — shallow-friendly (react-redux connect() is not a class component). */
 const Wrapped = withTransaction(WrappedComponent);
+const WrappedConnected = withTransactionConnected(WrappedComponent);
+
+const dispatchProp = () => jest.fn(() => Promise.resolve({}));
 
 describe('server/withTransaction HOC', () => {
-  let store = null;
-
-  beforeEach(() => {
-    store = mockStore({});
-  });
-
   describe('displayName', () => {
     it('sets correct name for named components', () => {
-      expect(Wrapped.displayName).toBe('Connect(withTransaction(WrappedComponent))');
+      expect(WrappedConnected.displayName).toBe('Connect(withTransaction(WrappedComponent))');
     });
 
     it('sets correct name for unnamed components', () => {
-      expect(withTransaction(() => <div />).displayName).toBe(
+      expect(withTransactionConnected(() => <div />).displayName).toBe(
         'Connect(withTransaction(Component))',
       );
     });
@@ -30,44 +27,42 @@ describe('server/withTransaction HOC', () => {
 
   describe('wrapper', () => {
     it('provides single action transaction callback as a prop', () => {
-      const wrapper = shallow(<Wrapped store={store} />);
+      const hocWrapper = shallow(<Wrapped dispatchAction={dispatchProp()} />);
 
-      expect(wrapper.find('withTransaction(WrappedComponent)')).toHaveLength(1);
-      const inner = wrapper.find('withTransaction(WrappedComponent)').dive();
+      expect(Wrapped.displayName).toBe('withTransaction(WrappedComponent)');
+      const inner = hocWrapper.find(WrappedComponent);
 
       expect(inner.prop('createTransaction')).toBeDefined();
     });
 
     it('provides multiple actions transaction callback as a prop', () => {
-      const wrapper = shallow(<Wrapped store={store} />);
+      const hocWrapper = shallow(<Wrapped dispatchAction={dispatchProp()} />);
 
-      const inner = wrapper.find('withTransaction(WrappedComponent)').dive();
+      const inner = hocWrapper.find(WrappedComponent);
 
       expect(inner.prop('createTransactions')).toBeDefined();
     });
 
     it('has reference to dispatch function from mapDispatchToProps', () => {
-      let wrapper = shallow(<Wrapped store={store} />);
-      wrapper = wrapper.find('withTransaction(WrappedComponent)').dive();
+      const hocWrapper = shallow(<Wrapped dispatchAction={dispatchProp()} />);
+      const inner = hocWrapper.find(WrappedComponent);
 
-      // wrapper.prop('createTransaction');
-
-      expect(wrapper.prop('dispatchAction')).toBeDefined();
+      expect(inner.prop('dispatchAction')).toBeDefined();
     });
   });
 
   describe('createTransaction', () => {
     let createTransaction = null;
-    let wrapper = null;
+    /** Shallow root: WithTransaction (dispatchAction updates must use setProps here). */
+    let hocWrapper = null;
 
     beforeEach(() => {
-      wrapper = shallow(<Wrapped store={store} />);
-      wrapper = wrapper.find('withTransaction(WrappedComponent)').dive();
-      createTransaction = wrapper.prop('createTransaction');
+      hocWrapper = shallow(<Wrapped dispatchAction={dispatchProp()} />);
+      createTransaction = hocWrapper.find(WrappedComponent).prop('createTransaction');
     });
 
     it('returns a promise', () => {
-      wrapper.setProps({ ...wrapper.props, dispatchAction: jest.fn(() => Promise.resolve({})) });
+      hocWrapper.setProps({ dispatchAction: jest.fn(() => Promise.resolve({})) });
 
       expect(createTransaction({})).toBeInstanceOf(Promise);
     });
@@ -75,8 +70,7 @@ describe('server/withTransaction HOC', () => {
     it('calls dispatchAction with the provided action', () => {
       const action = { type: 'ACTION', payload: { test: 'TEST' } };
       const callback = jest.fn(() => Promise.resolve({ data: true }));
-      wrapper.setProps({
-        ...wrapper.props,
+      hocWrapper.setProps({
         dispatchAction: callback,
       });
 
@@ -90,8 +84,7 @@ describe('server/withTransaction HOC', () => {
 
     it('returns response on success', () => {
       const action = { type: 'ACTION', payload: { test: 'TEST' } };
-      wrapper.setProps({
-        ...wrapper.props,
+      hocWrapper.setProps({
         dispatchAction: jest.fn(() => Promise.resolve({ data: true })),
       });
 
@@ -110,8 +103,7 @@ describe('server/withTransaction HOC', () => {
           error: 'FAILED',
         },
       };
-      wrapper.setProps({
-        ...wrapper.props,
+      hocWrapper.setProps({
         dispatchAction: jest.fn(() => Promise.reject(error)),
       });
       return createTransaction(action).catch(response => {
@@ -134,8 +126,7 @@ describe('server/withTransaction HOC', () => {
           },
         ],
       };
-      wrapper.setProps({
-        ...wrapper.props,
+      hocWrapper.setProps({
         dispatchAction: jest.fn(() => Promise.reject(error)),
       });
       return createTransaction(action).catch(response => {
@@ -152,8 +143,7 @@ describe('server/withTransaction HOC', () => {
         statusText: 'Not Found',
         data: null,
       };
-      wrapper.setProps({
-        ...wrapper.props,
+      hocWrapper.setProps({
         dispatchAction: jest.fn(() => Promise.reject(error)),
       });
       return createTransaction(action).catch(response => {
@@ -176,8 +166,7 @@ describe('server/withTransaction HOC', () => {
           },
         ],
       };
-      wrapper.setProps({
-        ...wrapper.props,
+      hocWrapper.setProps({
         dispatchAction: jest.fn(() => Promise.reject(error)),
       });
       return createTransaction(action).catch(response => {
@@ -200,8 +189,7 @@ describe('server/withTransaction HOC', () => {
           },
         ],
       };
-      wrapper.setProps({
-        ...wrapper.props,
+      hocWrapper.setProps({
         dispatchAction: jest.fn(() => Promise.reject(error)),
       });
       return createTransaction(action).catch(response => {
@@ -229,8 +217,7 @@ describe('server/withTransaction HOC', () => {
           },
         ],
       };
-      wrapper.setProps({
-        ...wrapper.props,
+      hocWrapper.setProps({
         dispatchAction: jest.fn(() => Promise.reject(error)),
       });
       return createTransaction(action, { parseFieldErrors: false }).catch(response => {
@@ -241,10 +228,8 @@ describe('server/withTransaction HOC', () => {
 
   describe('createTransactions', () => {
     it('returns a promise', () => {
-      let wrapper = shallow(<Wrapped store={store} />);
-      wrapper = wrapper.find('withTransaction(WrappedComponent)').dive();
-
-      const createTransactions = wrapper.prop('createTransactions');
+      const hocWrapper = shallow(<Wrapped dispatchAction={dispatchProp()} />);
+      const createTransactions = hocWrapper.find(WrappedComponent).prop('createTransactions');
       expect(createTransactions()).toBeInstanceOf(Promise);
     });
   });

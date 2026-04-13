@@ -1,14 +1,22 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import renderer from 'react-test-renderer';
+import { Provider } from 'react-redux';
 import mapboxgl from 'mapbox-gl';
 import configureMockStore from 'redux-mock-store';
 import { setupMapboxGlMocks } from '../../../test/mapboxMock';
-import ConnectedMap from './ConnectedMap';
+import ConnectedMapRedux, { ConnectedMap } from './ConnectedMap';
 
 jest.mock('mapbox-gl');
 
 const mockStore = configureMockStore([]);
+
+const mapProps = () => ({
+  mapLoaded: jest.fn(),
+  createMap: jest.fn(),
+  setOutputFeatureFromDraw: jest.fn(),
+  generatedStyle: {},
+});
 
 describe('redux.ConnectedMap', () => {
   let store = null;
@@ -28,21 +36,23 @@ describe('redux.ConnectedMap', () => {
   });
 
   it('Renders', () => {
-    shallow(<ConnectedMap store={store} />);
+    shallow(<ConnectedMap mapId="map" {...mapProps()} />);
   });
 
   it('matches snapshot', () => {
-    const tree = renderer.create(<ConnectedMap store={store} mapId="map" />);
+    const tree = renderer.create(
+      <Provider store={store}>
+        <ConnectedMapRedux mapId="map" />
+      </Provider>,
+    );
     expect(tree).toMatchSnapshot();
   });
 
   describe('onLoad', () => {
     it('doesnt error without onLoad callback', () => {
-      const wrapper = shallow(<ConnectedMap store={store} />);
+      const wrapper = shallow(<ConnectedMap mapId="map" {...mapProps()} />);
 
-      const mapComponent = wrapper.dive().dive();
-      const inst = mapComponent.instance();
-      inst.onLoad({}, {});
+      wrapper.instance().onLoad({}, {});
     });
 
     it('calls onLoad with style and map.', () => {
@@ -50,13 +60,11 @@ describe('redux.ConnectedMap', () => {
       const map = { id: 'map' };
       const onLoad = jest.fn();
 
-      const wrapper = shallow(<ConnectedMap store={store} onLoad={onLoad} />);
+      const wrapper = shallow(
+        <ConnectedMap mapId="map" onLoad={onLoad} {...mapProps()} />,
+      );
 
-      wrapper
-        .dive()
-        .dive()
-        .instance()
-        .onLoad(style, map);
+      wrapper.instance().onLoad(style, map);
 
       expect(onLoad).toHaveBeenCalledWith(style, map);
     });

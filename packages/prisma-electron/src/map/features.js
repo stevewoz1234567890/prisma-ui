@@ -12,12 +12,10 @@ const thunks = {
   getFeature: (id, type) => (dispatch, getState) => {
     const server = getState().server;
 
-    const promise = server.get(`/${type}/${id}`);
-    promise.then(response => {
+    return server.get(`/${type}/${id}`).then(response => {
       dispatch(getFeatureSuccess(response));
+      return response;
     });
-
-    return promise;
   },
 };
 
